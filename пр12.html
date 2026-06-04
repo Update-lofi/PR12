@@ -1,0 +1,443 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>пр12</title>
+  <link rel="stylesheet" href="https://stackedit.io/style.css" />
+</head>
+
+<body class="stackedit">
+  <div class="stackedit__html"><h2 id="практическая-работа-№12-авторизация-таблица--сессии">Практическая работа №12: Авторизация (таблица + сессии)</h2>
+<p><strong>Цель:</strong> Добавить в «Гостевую книгу» возможность входить под своим логином и удалять сообщения только авторизованному пользователю.</p>
+<h3 id="что-нужно-сделать">Что нужно сделать</h3>
+
+<table>
+<thead>
+<tr>
+<th>Этап</th>
+<th>Описание</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1</strong></td>
+<td>Создать таблицу <code>users</code> и добавить администратора</td>
+</tr>
+<tr>
+<td><strong>2</strong></td>
+<td>Добавить функцию проверки логина и пароля</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td>Настроить сессии в Flask</td>
+</tr>
+<tr>
+<td><strong>4</strong></td>
+<td>Добавить маршрут для входа (<code>/login</code>)</td>
+</tr>
+<tr>
+<td><strong>5</strong></td>
+<td>Добавить маршрут для выхода (<code>/logout</code>)</td>
+</tr>
+<tr>
+<td><strong>6</strong></td>
+<td>Защитить удаление — только для авторизованных</td>
+</tr>
+<tr>
+<td><strong>7</strong></td>
+<td>Добавить ссылки «Войти»/«Выйти» в шаблон</td>
+</tr>
+</tbody>
+</table><h3 id="что-такое-авторизация-и-зачем-она-нужна">Что такое авторизация и зачем она нужна</h3>
+<p>Представьте, что у вас есть гостевая книга, и вы не хотите, чтобы любой прохожий мог удалять чужие сообщения. Вы хотите, чтобы удалять мог только один человек — администратор.</p>
+<p>Для этого нужно, чтобы программа как-то <strong>отличала</strong> администратора от обычных посетителей. Этот процесс называется <strong>авторизацией</strong>.</p>
+<hr>
+<h3 id="проблема-сервер-не-запоминает-пользователей">Проблема: сервер не запоминает пользователей</h3>
+<p>Когда вы открываете сайт, ваш браузер отправляет серверу запрос. Сервер отвечает — и забывает о вас. Следующий запрос — всё сначала.</p>
+<p>Сервер не знает, что это вы, а не кто-то другой. Он не помнит, входили вы уже или нет.</p>
+<hr>
+<h3 id="решение-сессии">Решение: сессии</h3>
+<p>Чтобы сервер мог «запоминать» пользователей, используют <strong>сессии</strong>.</p>
+<p>Сессия — это как временный пропуск. Когда вы в первый раз заходите на сайт, сервер выдаёт вам уникальный номер (пропуск). Браузер сохраняет этот номер в маленький файл — <strong>cookie</strong>. При каждом новом запросе браузер показывает этот пропуск, и сервер понимает: «А, это тот же человек, что и раньше».</p>
+<hr>
+<h3 id="как-это-выглядит-на-практике">Как это выглядит на практике</h3>
+<ol>
+<li>Пользователь заходит на сайт — сервер выдаёт ему пустую сессию (без имени).</li>
+<li>Пользователь вводит логин и пароль на странице входа.</li>
+<li>Сервер проверяет логин и пароль. Если они верные — записывает в сессию метку «пользователь авторизован».</li>
+<li>Теперь при каждом новом запросе сервер видит эту метку и знает, что пользователь уже вошёл.</li>
+<li>Когда пользователь нажимает «Выйти» — сервер удаляет эту метку из сессии.</li>
+</ol>
+<h3 id="что-такое-сессия-в-коде-flask">Что такое сессия в коде Flask</h3>
+<p>Во Flask сессия выглядит как обычный словарь Python. В него можно сохранять любые данные, которые будут доступны при следующих запросах этого пользователя.</p>
+<pre class=" language-python"><code class="prism  language-python">session<span class="token punctuation">[</span><span class="token string">'logged_in'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">True</span>   <span class="token comment"># сохраняем факт входа</span>
+session<span class="token punctuation">[</span><span class="token string">'username'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token string">'admin'</span> <span class="token comment"># сохраняем имя пользователя</span>
+</code></pre>
+<p>Прочитать сохранённое можно так:</p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">if</span> session<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token comment"># пользователь авторизован</span>
+</code></pre>
+<p>Удалить данные — так:</p>
+<pre class=" language-python"><code class="prism  language-python">session<span class="token punctuation">.</span>pop<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">)</span>  <span class="token comment"># удаляем ключ</span>
+</code></pre>
+<hr>
+<h3 id="зачем-нужен-секретный-ключ">Зачем нужен секретный ключ</h3>
+<pre class=" language-python"><code class="prism  language-python">app<span class="token punctuation">.</span>secret_key <span class="token operator">=</span> <span class="token string">'секретный_ключ_12345'</span>
+</code></pre>
+<p>Данные сессии хранятся в куках браузера, но перед этим они <strong>шифруются</strong>. Секретный ключ нужен для этого шифрования.</p>
+<p>Без него Flask не позволит использовать сессии. В учебных целях можно написать любую строку.</p>
+<h3 id="как-мы-будем-защищать-удаление">Как мы будем защищать удаление</h3>
+<p>В маршруте удаления сообщения мы добавим проверку:</p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">if</span> <span class="token operator">not</span> session<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">return</span> redirect<span class="token punctuation">(</span><span class="token string">'/login'</span><span class="token punctuation">)</span>  <span class="token comment"># не авторизован — отправляем на вход</span>
+<span class="token comment"># если дошли до этой строки — авторизован, можно удалять</span>
+</code></pre>
+<h3 id="что-нам-понадобится-для-практики">Что нам понадобится для практики</h3>
+
+<table>
+<thead>
+<tr>
+<th>Компонент</th>
+<th>Зачем</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Таблица <code>users</code> в базе данных</td>
+<td>Хранить логины и пароли пользователей</td>
+</tr>
+<tr>
+<td>Функция <code>check_user()</code></td>
+<td>Проверять правильность логина и пароля</td>
+</tr>
+<tr>
+<td>Маршрут <code>/login</code></td>
+<td>Страница с формой входа</td>
+</tr>
+<tr>
+<td>Маршрут <code>/logout</code></td>
+<td>Очистить сессию и выйти</td>
+</tr>
+<tr>
+<td><code>app.secret_key</code></td>
+<td>Для шифрования сессии</td>
+</tr>
+<tr>
+<td>Проверка <code>session.get('logged_in')</code></td>
+<td>В защищённых маршрутах</td>
+</tr>
+</tbody>
+</table><h3 id="как-это-всё-соединится">Как это всё соединится</h3>
+<ol>
+<li>При запуске приложения создаётся таблица <code>users</code>, в неё добавляется администратор (<code>admin</code> / <code>123</code>).</li>
+<li>На главной странице неавторизованный пользователь не видит кнопку «Удалить».</li>
+<li>Пользователь переходит на <code>/login</code>, вводит логин и пароль.</li>
+<li>Сервер проверяет данные и устанавливает <code>session['logged_in'] = True</code>.</li>
+<li>Пользователь возвращается на главную — теперь кнопка «Удалить» видна.</li>
+<li>При нажатии на «Удалить» маршрут проверяет сессию и разрешает удаление.</li>
+<li>При нажатии на «Выйти» сессия очищается, кнопка снова пропадает.</li>
+</ol>
+<p>Теперь вы готовы к выполнению практической работы. Откройте свой проект «Гостевая книга» и следуйте инструкциям.</p>
+<h2 id="задание-1.-обновите-database.py-—-таблица-users">Задание 1. Обновите <code>database.py</code> — таблица <code>users</code></h2>
+<p><strong>Добавьте в функцию <code>init_db()</code> создание таблицы <code>users</code> и добавление администратора:</strong></p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">def</span> <span class="token function">init_db</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    conn <span class="token operator">=</span> get_db_connection<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Таблица сообщений (уже есть)</span>
+    conn<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token triple-quoted-string string">'''
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            message TEXT NOT NULL,
+            created_at DATE NOT NULL
+        )
+    '''</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># ========== НОВАЯ ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ ==========</span>
+    <span class="token comment"># UNIQUE означает, что логины не могут повторяться</span>
+    <span class="token comment"># NOT NULL — поле обязательно для заполнения</span>
+    conn<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token triple-quoted-string string">'''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        )
+    '''</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Добавляем администратора, если его ещё нет</span>
+    <span class="token comment"># INSERT OR IGNORE — если такой логин уже есть, не добавляем повторно</span>
+    <span class="token comment"># Пароль хранится как есть (в учебных целях, в реальных проектах пароли хэшируют!)</span>
+    conn<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
+        <span class="token string">'INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)'</span><span class="token punctuation">,</span>
+        <span class="token punctuation">(</span><span class="token string">'admin'</span><span class="token punctuation">,</span> <span class="token string">'123'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">)</span>
+    
+    conn<span class="token punctuation">.</span>commit<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    conn<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+</code></pre>
+<hr>
+<p><strong>Добавьте функцию проверки пользователя:</strong></p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">def</span> <span class="token function">check_user</span><span class="token punctuation">(</span>username<span class="token punctuation">,</span> password<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""
+    Проверяет, существует ли пользователь с таким логином и паролем.
+    Возвращает True, если пользователь найден, иначе False.
+    """</span>
+    conn <span class="token operator">=</span> get_db_connection<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token comment"># SELECT * FROM users — берём все поля</span>
+    <span class="token comment"># WHERE username = ? AND password = ? — ищем точное совпадение</span>
+    <span class="token comment"># ? — защита от SQL-инъекций</span>
+    user <span class="token operator">=</span> conn<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
+        <span class="token string">'SELECT * FROM users WHERE username = ? AND password = ?'</span><span class="token punctuation">,</span>
+        <span class="token punctuation">(</span>username<span class="token punctuation">,</span> password<span class="token punctuation">)</span>
+    <span class="token punctuation">)</span><span class="token punctuation">.</span>fetchone<span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment"># fetchone() — возвращает одну строку или None</span>
+    conn<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Если user не None, значит пользователь найден</span>
+    <span class="token keyword">return</span> user <span class="token keyword">is</span> <span class="token operator">not</span> <span class="token boolean">None</span>
+</code></pre>
+<hr>
+<h2 id="задание-2.-обновите-app.py-—-настройка-сессий">Задание 2. Обновите <code>app.py</code> — настройка сессий</h2>
+<p><strong>Импорты (добавьте <code>session</code>):</strong></p>
+<pre class=" language-python"><code class="prism  language-python"><span class="token keyword">from</span> flask <span class="token keyword">import</span> Flask<span class="token punctuation">,</span> render_template<span class="token punctuation">,</span> request<span class="token punctuation">,</span> redirect<span class="token punctuation">,</span> session
+<span class="token keyword">from</span> database <span class="token keyword">import</span> init_db<span class="token punctuation">,</span> get_all_messages<span class="token punctuation">,</span> add_message<span class="token punctuation">,</span> delete_message<span class="token punctuation">,</span> get_message_count<span class="token punctuation">,</span> check_user
+</code></pre>
+<hr>
+<p><strong>Секретный ключ (обязателен для сессий):</strong></p>
+<pre class=" language-python"><code class="prism  language-python">app <span class="token operator">=</span> Flask<span class="token punctuation">(</span>__name__<span class="token punctuation">)</span>
+
+<span class="token comment"># Секретный ключ нужен для шифрования данных сессии</span>
+<span class="token comment"># В реальном проекте его хранят в переменных окружения</span>
+<span class="token comment"># Здесь используем простую строку для учебных целей</span>
+app<span class="token punctuation">.</span>secret_key <span class="token operator">=</span> <span class="token string">'секретный_ключ_для_гостевой_книги_12345'</span>
+</code></pre>
+<hr>
+<p><strong>Инициализация базы данных:</strong></p>
+<pre class=" language-python"><code class="prism  language-python">init_db<span class="token punctuation">(</span><span class="token punctuation">)</span>  <span class="token comment"># создаём таблицы, если их нет</span>
+</code></pre>
+<hr>
+<h2 id="задание-3.-добавьте-маршрут-для-входа-login">Задание 3. Добавьте маршрут для входа <code>/login</code></h2>
+<pre class=" language-python"><code class="prism  language-python">@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">'/login'</span><span class="token punctuation">,</span> methods<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">'GET'</span><span class="token punctuation">,</span> <span class="token string">'POST'</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">login</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""
+    Страница входа в приложение.
+    GET — показывает форму входа.
+    POST — обрабатывает отправленные логин и пароль.
+    """</span>
+    error <span class="token operator">=</span> <span class="token boolean">None</span>  <span class="token comment"># переменная для сообщения об ошибке</span>
+    
+    <span class="token keyword">if</span> request<span class="token punctuation">.</span>method <span class="token operator">==</span> <span class="token string">'POST'</span><span class="token punctuation">:</span>
+        <span class="token comment"># Получаем данные из формы</span>
+        username <span class="token operator">=</span> request<span class="token punctuation">.</span>form<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'username'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        password <span class="token operator">=</span> request<span class="token punctuation">.</span>form<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'password'</span><span class="token punctuation">,</span> <span class="token string">''</span><span class="token punctuation">)</span><span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        
+        <span class="token comment"># Проверяем, правильные ли логин и пароль</span>
+        <span class="token keyword">if</span> check_user<span class="token punctuation">(</span>username<span class="token punctuation">,</span> password<span class="token punctuation">)</span><span class="token punctuation">:</span>
+            <span class="token comment"># Сохраняем информацию о входе в сессию</span>
+            <span class="token comment"># session — это словарь, который хранится на сервере</span>
+            <span class="token comment"># данные привязаны к конкретному браузеру через cookies</span>
+            session<span class="token punctuation">[</span><span class="token string">'logged_in'</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">True</span>   <span class="token comment"># флаг, что пользователь вошёл</span>
+            session<span class="token punctuation">[</span><span class="token string">'username'</span><span class="token punctuation">]</span> <span class="token operator">=</span> username  <span class="token comment"># сохраняем имя пользователя</span>
+            <span class="token keyword">return</span> redirect<span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span>  <span class="token comment"># перенаправляем на главную</span>
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            <span class="token comment"># Если логин или пароль неверные</span>
+            error <span class="token operator">=</span> <span class="token string">'Неверный логин или пароль'</span>
+    
+    <span class="token comment"># GET-запрос или ошибка — показываем форму входа</span>
+    <span class="token keyword">return</span> render_template<span class="token punctuation">(</span><span class="token string">'login.html'</span><span class="token punctuation">,</span> error<span class="token operator">=</span>error<span class="token punctuation">)</span>
+</code></pre>
+<hr>
+<h2 id="задание-4.-добавьте-маршрут-для-выхода-logout">Задание 4. Добавьте маршрут для выхода <code>/logout</code></h2>
+<pre class=" language-python"><code class="prism  language-python">@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">'/logout'</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">logout</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""
+    Выход из приложения.
+    Удаляет данные пользователя из сессии.
+    """</span>
+    <span class="token comment"># pop удаляет ключ из словаря session</span>
+    <span class="token comment"># Если ключа нет, ничего не происходит</span>
+    session<span class="token punctuation">.</span>pop<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">)</span>
+    session<span class="token punctuation">.</span>pop<span class="token punctuation">(</span><span class="token string">'username'</span><span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Перенаправляем на главную страницу</span>
+    <span class="token keyword">return</span> redirect<span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span>
+</code></pre>
+<hr>
+<h2 id="задание-5.-защитите-удаление-—-только-для-авторизованных">Задание 5. Защитите удаление — только для авторизованных</h2>
+<p><strong>Обновите маршрут <code>/delete</code>:</strong></p>
+<pre class=" language-python"><code class="prism  language-python">@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">'/delete/&lt;int:message_id&gt;'</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">delete</span><span class="token punctuation">(</span>message_id<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""
+    Удаляет сообщение по id.
+    Только авторизованный пользователь может удалять.
+    """</span>
+    <span class="token comment"># Проверяем, авторизован ли пользователь</span>
+    <span class="token comment"># session.get('logged_in') возвращает True/False или None</span>
+    <span class="token keyword">if</span> <span class="token operator">not</span> session<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+        <span class="token comment"># Если не авторизован — отправляем на страницу входа</span>
+        <span class="token keyword">return</span> redirect<span class="token punctuation">(</span><span class="token string">'/login'</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Если авторизован — удаляем сообщение</span>
+    delete_message<span class="token punctuation">(</span>message_id<span class="token punctuation">)</span>
+    <span class="token keyword">return</span> redirect<span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span>
+</code></pre>
+<hr>
+<h2 id="задание-6.-обновите-маршрут--—-передача-данных-о-пользователе-в-шаблон">Задание 6. Обновите маршрут <code>/</code> — передача данных о пользователе в шаблон</h2>
+<pre class=" language-python"><code class="prism  language-python">@app<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">'/'</span><span class="token punctuation">)</span>
+<span class="token keyword">def</span> <span class="token function">index</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token triple-quoted-string string">"""
+    Главная страница — показывает список сообщений.
+    """</span>
+    messages <span class="token operator">=</span> get_all_messages<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    total_count <span class="token operator">=</span> get_message_count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    
+    <span class="token comment"># Передаём в шаблон:</span>
+    <span class="token comment"># сообщения, счётчик, и флаг авторизации</span>
+    <span class="token keyword">return</span> render_template<span class="token punctuation">(</span>
+        <span class="token string">'index.html'</span><span class="token punctuation">,</span>
+        messages<span class="token operator">=</span>messages<span class="token punctuation">,</span>
+        total_count<span class="token operator">=</span>total_count<span class="token punctuation">,</span>
+        logged_in<span class="token operator">=</span>session<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'logged_in'</span><span class="token punctuation">,</span> <span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span>  <span class="token comment"># по умолчанию False</span>
+        username<span class="token operator">=</span>session<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">'username'</span><span class="token punctuation">)</span>  <span class="token comment"># имя пользователя или None</span>
+    <span class="token punctuation">)</span>
+</code></pre>
+<hr>
+<h2 id="задание-7.-создайте-шаблон-templateslogin.html">Задание 7. Создайте шаблон <code>templates/login.html</code></h2>
+<pre class=" language-html"><code class="prism  language-html"><span class="token doctype">&lt;!DOCTYPE html&gt;</span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>meta</span> <span class="token attr-name">charset</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>UTF-8<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">&gt;</span></span>Вход в гостевую книгу<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>link</span> <span class="token attr-name">rel</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>stylesheet<span class="token punctuation">"</span></span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>{{ url_for(<span class="token punctuation">'</span>static<span class="token punctuation">'</span>, filename=<span class="token punctuation">'</span>style.css<span class="token punctuation">'</span>) }}<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>container<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h1</span><span class="token punctuation">&gt;</span></span>🔐 Вход в гостевую книгу<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h1</span><span class="token punctuation">&gt;</span></span>
+        
+        {# Если есть ошибка — показываем её #}
+        {% if error %}
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>error<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>{{ error }}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">&gt;</span></span>
+        {% endif %}
+        
+        {# Форма отправляет данные методом POST на тот же адрес /login #}
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>form</span> <span class="token attr-name">method</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>POST<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>text<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>username<span class="token punctuation">"</span></span> <span class="token attr-name">placeholder</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>Логин<span class="token punctuation">"</span></span> <span class="token attr-name">required</span><span class="token punctuation">&gt;</span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>input</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>password<span class="token punctuation">"</span></span> <span class="token attr-name">name</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>password<span class="token punctuation">"</span></span> <span class="token attr-name">placeholder</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>Пароль<span class="token punctuation">"</span></span> <span class="token attr-name">required</span><span class="token punctuation">&gt;</span></span>
+            <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>button</span> <span class="token attr-name">type</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>submit<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>Войти<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>button</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>form</span><span class="token punctuation">&gt;</span></span>
+        
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>/<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>← На главную<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">&gt;</span></span><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">&gt;</span></span>
+</code></pre>
+<h2 id="задание-8.-обновите-templatesindex.html">Задание 8. Обновите <code>templates/index.html</code></h2>
+<p><strong>Добавьте блок авторизации в начало страницы (после <code>&lt;h1&gt;</code>):</strong></p>
+<pre class=" language-html"><code class="prism  language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>auth-links<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+    {% if logged_in %}
+        {# Пользователь авторизован #}
+        Вы вошли как <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>strong</span><span class="token punctuation">&gt;</span></span>{{ username }}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>strong</span><span class="token punctuation">&gt;</span></span> |
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>/logout<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>Выйти<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">&gt;</span></span>
+    {% else %}
+        {# Пользователь не авторизован #}
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>/login<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>Войти<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">&gt;</span></span> (админ: admin / 123)
+    {% endif %}
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+</code></pre>
+<p><strong>Обновите кнопку удаления — показывать только авторизованным:</strong></p>
+<pre class=" language-html"><code class="prism  language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>div</span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>message<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>strong</span><span class="token punctuation">&gt;</span></span>{{ msg.name }}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>strong</span><span class="token punctuation">&gt;</span></span> <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>small</span><span class="token punctuation">&gt;</span></span>({{ msg.created_at }})<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>small</span><span class="token punctuation">&gt;</span></span>
+    {% if logged_in %}
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>a</span> <span class="token attr-name">href</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>/delete/{{ msg.id }}<span class="token punctuation">"</span></span> <span class="token attr-name">class</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>delete-btn<span class="token punctuation">"</span></span> <span class="token attr-name">onclick</span><span class="token attr-value"><span class="token punctuation">=</span><span class="token punctuation">"</span>return confirm(<span class="token punctuation">'</span>Удалить сообщение?<span class="token punctuation">'</span>)<span class="token punctuation">"</span></span><span class="token punctuation">&gt;</span></span>Удалить<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>a</span><span class="token punctuation">&gt;</span></span>
+    {% endif %}
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>p</span><span class="token punctuation">&gt;</span></span>{{ msg.message }}<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>p</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>div</span><span class="token punctuation">&gt;</span></span>
+</code></pre>
+<h2 id="задание-9.-добавьте-стили-в-staticstyle.css">Задание 9. Добавьте стили в <code>static/style.css</code></h2>
+<pre class=" language-css"><code class="prism  language-css"><span class="token comment">/* Блок авторизации в правом верхнем углу */</span>
+<span class="token selector"><span class="token class">.auth-links</span> </span><span class="token punctuation">{</span>
+    <span class="token property">text-align</span><span class="token punctuation">:</span> right<span class="token punctuation">;</span>
+    <span class="token property">margin-bottom</span><span class="token punctuation">:</span> <span class="token number">20</span>px<span class="token punctuation">;</span>
+    <span class="token property">padding-bottom</span><span class="token punctuation">:</span> <span class="token number">10</span>px<span class="token punctuation">;</span>
+    <span class="token property">border-bottom</span><span class="token punctuation">:</span> <span class="token number">1</span>px solid <span class="token hexcode">#ddd</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">/* Сообщение об ошибке входа */</span>
+<span class="token selector"><span class="token class">.error</span> </span><span class="token punctuation">{</span>
+    <span class="token property">color</span><span class="token punctuation">:</span> <span class="token hexcode">#721c24</span><span class="token punctuation">;</span>
+    <span class="token property">background-color</span><span class="token punctuation">:</span> <span class="token hexcode">#f8d7da</span><span class="token punctuation">;</span>
+    <span class="token property">border</span><span class="token punctuation">:</span> <span class="token number">1</span>px solid <span class="token hexcode">#f5c6cb</span><span class="token punctuation">;</span>
+    <span class="token property">padding</span><span class="token punctuation">:</span> <span class="token number">10</span>px<span class="token punctuation">;</span>
+    <span class="token property">border-radius</span><span class="token punctuation">:</span> <span class="token number">5</span>px<span class="token punctuation">;</span>
+    <span class="token property">margin-bottom</span><span class="token punctuation">:</span> <span class="token number">15</span>px<span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token comment">/* Кнопка удаления */</span>
+<span class="token selector"><span class="token class">.delete-btn</span> </span><span class="token punctuation">{</span>
+    <span class="token property">float</span><span class="token punctuation">:</span> right<span class="token punctuation">;</span>
+    <span class="token property">color</span><span class="token punctuation">:</span> red<span class="token punctuation">;</span>
+    <span class="token property">text-decoration</span><span class="token punctuation">:</span> none<span class="token punctuation">;</span>
+    <span class="token property">font-size</span><span class="token punctuation">:</span> <span class="token number">1.2</span>em<span class="token punctuation">;</span>
+    <span class="token property">margin-left</span><span class="token punctuation">:</span> <span class="token number">10</span>px<span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+<span class="token selector"><span class="token class">.delete-btn</span><span class="token pseudo-class">:hover</span> </span><span class="token punctuation">{</span>
+    <span class="token property">color</span><span class="token punctuation">:</span> darkred<span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+</code></pre>
+<h2 id="что-получилось-в-итоге">Что получилось в итоге</h2>
+
+<table>
+<thead>
+<tr>
+<th>Компонент</th>
+<th>Что делает</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Таблица <code>users</code></td>
+<td>Хранит логины и пароли</td>
+</tr>
+<tr>
+<td><code>check_user()</code></td>
+<td>Проверяет правильность логина и пароля</td>
+</tr>
+<tr>
+<td><code>session['logged_in']</code></td>
+<td>Хранит факт авторизации</td>
+</tr>
+<tr>
+<td><code>/login</code></td>
+<td>Страница входа (форма)</td>
+</tr>
+<tr>
+<td><code>/logout</code></td>
+<td>Выход (очищает сессию)</td>
+</tr>
+<tr>
+<td>Защищённый <code>/delete</code></td>
+<td>Не даёт удалять сообщения без авторизации</td>
+</tr>
+<tr>
+<td>Условный вывод в шаблоне</td>
+<td>Показывает разные кнопки для авторизованных/неавторизованных</td>
+</tr>
+</tbody>
+</table><hr>
+<h2 id="проверка-работоспособности">Проверка работоспособности</h2>
+<ol>
+<li>Запустите приложение: <code>python app.py</code></li>
+<li>Откройте <code>http://127.0.0.1:5000</code></li>
+<li>Попробуйте удалить сообщение — кнопки удаления нет или она не работает</li>
+<li>Нажмите «Войти» → перейдите на <code>/login</code></li>
+<li>Введите логин <code>admin</code>, пароль <code>123</code></li>
+<li>После входа появилась кнопка «Удалить»</li>
+<li>Нажмите «Удалить» — сообщение исчезает</li>
+<li>Нажмите «Выйти» — кнопка удаления снова пропала</li>
+</ol>
+</div>
+</body>
+
+</html>
